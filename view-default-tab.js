@@ -1,62 +1,89 @@
-class ViewDefaultTabCard extends HTMLElement {
+class ViewDefaultTab {
   
   constructor() {
-    super();
-    this._initialized = false;
-    this._currentPath = null;
+    this.initialized = false;
+    this.currentPath = null;
+    this.init();
   }
   
-  set hass(hass) {
-    // Hide the card - it should be invisible
-    this.style.display = 'none';
-    
-    // Don't run if no config or no users configured
-    if (!this.config || !this.config.users || !Array.isArray(this.config.users)) {
-      return;
+  init() {
+    // Wait for Home Assistant to be fully loaded
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => this.start());
+    } else {
+      this.start();
     }
+  }
+  
+  start() {
+    // Observe for changes in the DOM to catch dashboard loads
+    this.observeChanges();
+    // Try initial check
+    this.checkAndRedirect();
+  }
+  
+  observeChanges() {
+    const observer = new MutationObserver(() => {
+      this.checkAndRedirect();
+    });
     
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
+  
+  checkAndRedirect() {
     try {
       // Check if this is a new page load by monitoring URL path changes
       const currentPath = window.location.pathname + window.location.hash;
-      const isNewPageLoad = !this._initialized || this._currentPath !== currentPath;
+      const isNewPageLoad = !this.initialized || this.currentPath !== currentPath;
       
       if (!isNewPageLoad) {
         return; // Not a new page load, don't redirect
       }
       
       // Update tracking variables
-      this._currentPath = currentPath;
-      this._initialized = true;
+      this.currentPath = currentPath;
+      this.initialized = true;
       
       // Get the main Home Assistant elements
       const homeAssistant = document.querySelector('home-assistant');
       if (!homeAssistant) return;
       
-      const root = homeAssistant.shadowRoot.querySelector('home-assistant-main').shadowRoot;
+      const root = homeAssistant.shadowRoot?.querySelector('home-assistant-main')?.shadowRoot;
       if (!root) return;
       
       // Find the Lovelace panel
       const panel = root.querySelector('ha-panel-lovelace');
       if (!panel) return;
       
-      const uiRoot = panel.shadowRoot.querySelector('hui-root');
+      const uiRoot = panel.shadowRoot?.querySelector('hui-root');
       if (!uiRoot) return;
       
       // Don't redirect in edit mode
-      const isEditing = uiRoot.shadowRoot.querySelector('.edit-mode');
+      const isEditing = uiRoot.shadowRoot?.querySelector('.edit-mode');
       if (isEditing) return;
       
-      // Get the tab group
-      const tabs = uiRoot.shadowRoot.querySelector('ha-tab-group');
-      if (!tabs || !tabs.tabs) return;
+      // Get the dashboard configuration
+      const config = this.getDashboardConfig(uiRoot);
+      if (!config || !config.view_default_tab || !config.view_default_tab.users) return;
       
-      const tabList = tabs.tabs;
+      // Get current user from hass object
+      const hass = this.getHassObject();
+      if (!hass || !hass.user) return;
+      
       const currentUser = hass.user.name;
       
       // Find configuration for current user
-      const userConfig = this.config.users.find(user => user.username === currentUser);
+      const userConfig = config.view_default_tab.users.find(user => user.username === currentUser);
       if (!userConfig) return;
       
+      // Get the tab group
+      const tabs = uiRoot.shadowRoot?.querySelector('ha-tab-group');
+      if (!tabs || !tabs.tabs) return;
+      
+      const tabList = tabs.tabs;
       const targetTabIndex = userConfig.default_tab;
       
       // Validate tab index
@@ -84,63 +111,47 @@ class ViewDefaultTabCard extends HTMLElement {
     }
   }
   
-  setConfig(config) {
-    // Validate configuration
-    if (!config) {
-      throw new Error('View Default Tab: No configuration provided');
+  getDashboardConfig(uiRoot) {
+    try {
+      // Get the dashboard config from hui-root
+      const huiRoot = uiRoot;
+      if (huiRoot && huiRoot.config) {
+        return huiRoot.config;
+      }
+      
+      // Alternative method: try to get from _config property
+      if (huiRoot && huiRoot._config) {
+        return huiRoot._config;
+      }
+      
+      // Another alternative: check if config is in the lovelace object
+      const homeAssistant = document.querySelector('home-assistant');
+      if (homeAssistant && homeAssistant.hass && homeAssistant.hass.panels && homeAssistant.hass.panels.lovelace) {
+        const lovelaceConfig = homeAssistant.hass.panels.lovelace.config;
+        if (lovelaceConfig) {
+          return lovelaceConfig;
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('View Default Tab: Error getting dashboard config:', error);
+      return null;
     }
-    
-    if (!config.users || !Array.isArray(config.users)) {
-      throw new Error('View Default Tab: You need to define users (array)');
-    }
-    
-    if (config.users.length === 0) {
-      throw new Error('View Default Tab: Users array cannot be empty');
-    }
-    
-    // Validate each user configuration
-    config.users.forEach((user, index) => {
-      if (!user) {
-        throw new Error(`View Default Tab: User at index ${index} is null or undefined`);
-      }
-      
-      if (!user.username || typeof user.username !== 'string') {
-        throw new Error(`View Default Tab: User at index ${index} needs a valid username (string)`);
-      }
-      
-      if (user.default_tab === undefined || user.default_tab === null) {
-        throw new Error(`View Default Tab: User '${user.username}' needs a default_tab (number)`);
-      }
-      
-      if (typeof user.default_tab !== 'number' || !Number.isInteger(user.default_tab)) {
-        throw new Error(`View Default Tab: User '${user.username}' default_tab must be an integer`);
-      }
-      
-      if (user.default_tab < 0) {
-        throw new Error(`View Default Tab: User '${user.username}' default_tab must be 0 or greater`);
-      }
-    });
-    
-    this.config = config;
   }
   
-  // Required by Home Assistant - return card configuration
-  getCardSize() {
-    return 0; // Invisible card
+  getHassObject() {
+    try {
+      const homeAssistant = document.querySelector('home-assistant');
+      return homeAssistant?.hass || null;
+    } catch (error) {
+      console.error('View Default Tab: Error getting hass object:', error);
+      return null;
+    }
   }
 }
 
-// Register the custom element
-customElements.define('view-default-tab-card', ViewDefaultTabCard);
+// Initialize the plugin when the script loads
+new ViewDefaultTab();
 
-// Add to window for Lovelace
-window.customCards = window.customCards || [];
-window.customCards.push({
-  type: 'view-default-tab',
-  name: 'View Default Tab Card',
-  description: 'Automatically redirect users to their default tab',
-  preview: false,
-  documentationURL: 'https://github.com/SanderM2/ha-view-default-tab'
-});
-
-console.info('%c VIEW-DEFAULT-TAB-CARD %c Version 1.0.0 ', 'color: orange; font-weight: bold; background: black', 'color: white; font-weight: bold; background: dimgray');
+console.info('%c VIEW-DEFAULT-TAB %c Version 1.0.0 ', 'color: orange; font-weight: bold; background: black', 'color: white; font-weight: bold; background: dimgray');
