@@ -1,9 +1,10 @@
 {
   "name": "View Default Tab KNUTS",
+  "version": "1.0.0",
   "content_in_root": false,
   "filename": "view-default-tab.js",
   "country": ["NL"],
-  "homeassistant": "0.115.0",
+  "homeassistant": "2025.10",
   "persistent_directory": false,
   "render_readme": true
 }
