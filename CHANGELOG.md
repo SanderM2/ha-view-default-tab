@@ -5,17 +5,15 @@ All notable changes to this project will be documented in this file.
 ## [1.0.0] - 2024-10-30
 
 ### Added
-- Initial release
+- Initial release of View Default Tab KNUTS
 - User-specific default tab configuration
-- Session-based caching to prevent constant redirects
-- Respect for manual user navigation
-- Support for force redirect option
-- Configurable cache duration
-- Invisible card design
+- Dashboard-level configuration (like keep_texts_in_tabs)
+- Automatic tab redirection based on user
+- Smart page load detection to prevent constant redirects
 - HACS compatibility
 
 ### Features
-- No entities required - just username and tab index
+- No cards required - works at dashboard level
 - Works only in view mode (not edit mode)
-- Automatic tab redirection based on user
-- Smart caching to improve user experience
+- One-time redirect per page load
+- Users can freely navigate after initial redirect

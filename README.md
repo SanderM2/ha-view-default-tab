@@ -1,4 +1,4 @@
-# View Default Tab
+# View Default Tab KNUTS
 
 A simple Lovelace plugin that automatically redirects users to their default tab when they visit a dashboard.
 
@@ -7,7 +7,7 @@ A simple Lovelace plugin that automatically redirects users to their default tab
 ### Via HACS
 
 1. Add this repository as a custom repository in HACS
-2. Install "View Default Tab"
+2. Install "View Default Tab KNUTS"
 3. Add the resource to your Lovelace resources
 
 ### Manual Installation
@@ -47,41 +47,6 @@ view_default_tab:
       default_tab: 1
     - username: "mary"  
       default_tab: 2
-```
-
-### Real-world Example
-
-Here's how you can integrate it into an existing dashboard configuration:
-
-```yaml
-view_default_tab:
-  users:
-    - username: "parent1"
-      default_tab: 0  # Master tab
-    - username: "parent2" 
-      default_tab: 0  # Master tab
-    - username: "tibe"
-      default_tab: 1  # Tibe tab
-    - username: "menthe"
-      default_tab: 2  # Menthe tab
-
-views:
-  - title: Master
-    sections:
-      - type: grid
-        cards:
-          # Your existing cards here
-          - type: heading
-            icon: mdi:lightbulb
-            heading: Lights
-            heading_style: subtitle
-          # ... rest of your cards
-    type: sections
-    # ... rest of your view config
-  - title: Tibe
-    # ... your Tibe view config
-  - title: Menthe
-    # ... your Menthe view config
 ```
 
 ### Options

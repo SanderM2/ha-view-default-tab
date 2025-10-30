@@ -1,4 +1,4 @@
-## View Default Tab
+## View Default Tab KNUTS
 
 A simple and lightweight Lovelace plugin that automatically redirects users to their configured default tab when they visit a dashboard.
 
