@@ -64,52 +64,45 @@ class ViewDefaultTab {
   }
   
   onNavigationChange() {
-    const newDashboard = this.getCurrentDashboardPath();
     const currentFullPath = window.location.pathname;
     
     console.log('ViewDefaultTab KNUTS: Navigation detected - Full path:', currentFullPath);
-    console.log('ViewDefaultTab KNUTS: Dashboard path:', newDashboard);
     console.log('ViewDefaultTab KNUTS: Previous dashboard:', this.currentDashboard);
     
-    if (newDashboard !== this.currentDashboard) {
-      console.log('ViewDefaultTab KNUTS: 🔄 DIFFERENT DASHBOARD detected - from', this.currentDashboard, 'to', newDashboard);
-      this.currentDashboard = newDashboard;
+    // Extract dashboard base from both current and previous paths
+    const currentDashboardBase = this.extractDashboardBase(currentFullPath);
+    const previousDashboardBase = this.currentDashboard ? this.extractDashboardBase(this.currentDashboard) : null;
+    
+    console.log('ViewDefaultTab KNUTS: Current dashboard base:', currentDashboardBase);
+    console.log('ViewDefaultTab KNUTS: Previous dashboard base:', previousDashboardBase);
+    
+    if (currentDashboardBase !== previousDashboardBase) {
+      console.log('ViewDefaultTab KNUTS: 🔄 DIFFERENT DASHBOARD detected - from', previousDashboardBase, 'to', currentDashboardBase);
+      this.currentDashboard = currentFullPath;
       this.hasRedirected = false; // Reset flag for new dashboard
       
       // Try redirect on new dashboard
       setTimeout(() => this.tryRedirect(), 200);
     } else {
-      console.log('ViewDefaultTab KNUTS: ⏸️ SAME DASHBOARD - tab navigation within', newDashboard, '- NOT resetting flag');
+      console.log('ViewDefaultTab KNUTS: ⏸️ SAME DASHBOARD - tab navigation within', currentDashboardBase, '- NOT resetting flag');
+      // Update current path but don't reset flag
+      this.currentDashboard = currentFullPath;
     }
   }
   
-  getCurrentDashboardPath() {
-    const path = window.location.pathname;
+  extractDashboardBase(path) {
+    if (!path) return null;
     
-    // Split path into segments
+    // For paths like /dashboard-test/tibe, /dashboard-test/master, /dashboard-test/0
+    // Extract just the dashboard part: /dashboard-test
     const segments = path.split('/').filter(segment => segment !== '');
     
-    if (segments.length < 2) {
-      return path;
+    if (segments.length >= 2) {
+      // Return first two segments: /dashboard-test
+      return '/' + segments[0];
     }
     
-    // For Home Assistant dashboard paths like:
-    // /dashboard-test/tibe, /dashboard-test/master, /dashboard-test/0, /dashboard-test/1
-    // We want the dashboard base to be /dashboard-test
-    // Only the numeric tab indices should be stripped, named tabs are still part of same dashboard
-    
-    const lastSegment = segments[segments.length - 1];
-    
-    // If last segment is purely numeric, it's a tab index - remove it to get dashboard base
-    if (/^\d+$/.test(lastSegment)) {
-      // Remove the numeric tab index: /dashboard-test/0 → /dashboard-test
-      return '/' + segments.slice(0, -1).join('/');
-    } else {
-      // For named tabs, we still want the dashboard base, not the full path
-      // /dashboard-test/tibe → /dashboard-test (same dashboard, different tab)
-      // This way tibe, master, etc. are all treated as tabs within the same dashboard
-      return '/' + segments.slice(0, -1).join('/');
-    }
+    return path;
   }
   
   waitForDashboard() {
