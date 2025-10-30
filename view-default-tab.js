@@ -29,17 +29,50 @@ class ViewDefaultTab {
   }
   
   setupTabClickDetection() {
+    console.log('ViewDefaultTab KNUTS: Setting up tab click detection');
+    
     // Listen for clicks on the entire document
     document.addEventListener('click', (event) => {
+      console.log('ViewDefaultTab KNUTS: Click detected on:', event.target);
+      console.log('ViewDefaultTab KNUTS: Click target tagName:', event.target.tagName);
+      console.log('ViewDefaultTab KNUTS: Click target classes:', event.target.className);
+      
       // Check if the click was on a tab or inside a tab
       const clickedElement = event.target;
       const tabElement = clickedElement.closest('ha-tab-group-tab');
       
+      console.log('ViewDefaultTab KNUTS: Closest ha-tab-group-tab:', tabElement);
+      
       if (tabElement) {
-        console.log('ViewDefaultTab KNUTS: Tab click detected, blocking redirects for', this.tabClickCooldown, 'ms');
+        console.log('ViewDefaultTab KNUTS: ✅ TAB CLICK DETECTED! Setting cooldown timer');
+        console.log('ViewDefaultTab KNUTS: Tab element:', tabElement);
+        console.log('ViewDefaultTab KNUTS: Tab aria-label:', tabElement.getAttribute('aria-label'));
         this.lastTabClickTime = Date.now();
+        console.log('ViewDefaultTab KNUTS: lastTabClickTime set to:', this.lastTabClickTime);
+      } else {
+        console.log('ViewDefaultTab KNUTS: ❌ Not a tab click');
+        
+        // Let's also check for other possible tab-related elements
+        const isInTabGroup = clickedElement.closest('ha-tab-group');
+        console.log('ViewDefaultTab KNUTS: Is in ha-tab-group?', !!isInTabGroup);
+        
+        if (isInTabGroup) {
+          console.log('ViewDefaultTab KNUTS: Click is inside ha-tab-group, checking parent elements...');
+          let current = clickedElement;
+          while (current && current !== document) {
+            console.log('ViewDefaultTab KNUTS: Checking element:', current.tagName, current.className);
+            if (current.tagName === 'HA-TAB-GROUP-TAB') {
+              console.log('ViewDefaultTab KNUTS: ✅ Found HA-TAB-GROUP-TAB in parent chain!');
+              this.lastTabClickTime = Date.now();
+              break;
+            }
+            current = current.parentElement;
+          }
+        }
       }
     }, true); // Use capture phase to catch it early
+    
+    console.log('ViewDefaultTab KNUTS: Tab click detection setup complete');
   }
   
   setupUrlChangeListeners() {
@@ -77,22 +110,35 @@ class ViewDefaultTab {
   
   checkAndRedirect() {
     try {
+      console.log('ViewDefaultTab KNUTS: 🔍 CheckAndRedirect called');
+      
       // Check if we recently had a tab click - if so, don't redirect
       const timeSinceTabClick = Date.now() - this.lastTabClickTime;
+      console.log('ViewDefaultTab KNUTS: Time since last tab click:', timeSinceTabClick, 'ms');
+      console.log('ViewDefaultTab KNUTS: Cooldown period:', this.tabClickCooldown, 'ms');
+      console.log('ViewDefaultTab KNUTS: lastTabClickTime:', this.lastTabClickTime);
+      
       if (timeSinceTabClick < this.tabClickCooldown) {
-        console.log('ViewDefaultTab KNUTS: Recent tab click detected, skipping redirect. Time since click:', timeSinceTabClick, 'ms');
+        console.log('ViewDefaultTab KNUTS: ⏸️ BLOCKING REDIRECT - Recent tab click detected, skipping redirect. Time since click:', timeSinceTabClick, 'ms');
         return;
+      } else {
+        console.log('ViewDefaultTab KNUTS: ✅ No recent tab click, proceeding with redirect check');
       }
       
       // Check if this is a new page load by monitoring URL path changes
       const currentPath = window.location.pathname + window.location.hash;
       const isNewPageLoad = !this.initialized || this.currentPath !== currentPath;
       
+      console.log('ViewDefaultTab KNUTS: Current path:', currentPath);
+      console.log('ViewDefaultTab KNUTS: Previous path:', this.currentPath);
+      console.log('ViewDefaultTab KNUTS: Is new page load:', isNewPageLoad);
+      
       if (!isNewPageLoad) {
+        console.log('ViewDefaultTab KNUTS: ⏭️ Not a new page load, skipping redirect');
         return; // Not a new page load, don't redirect
       }
       
-      console.log('ViewDefaultTab KNUTS: New page detected, checking for redirect. Path:', currentPath);
+      console.log('ViewDefaultTab KNUTS: 🚀 New page detected, checking for redirect. Path:', currentPath);
       
       // Update tracking variables
       this.currentPath = currentPath;
