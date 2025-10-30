@@ -1,0 +1,41 @@
+# Example Configuration
+
+## Basic Configuration
+
+```yaml
+type: custom:view-default-tab
+users:
+  - username: "john"
+    default_tab: 1
+  - username: "mary"
+    default_tab: 2
+```
+
+## Multiple Users Configuration
+
+```yaml
+type: custom:view-default-tab
+users:
+  - username: "admin"
+    default_tab: 0
+  - username: "family_member"
+    default_tab: 1
+  - username: "guest"
+    default_tab: 2
+```
+
+## Configuration Options
+
+### Required
+- `users`: Array of user configurations
+  - `username`: Home Assistant username (string)
+  - `default_tab`: Tab index to redirect to (number, 0-based)
+
+## Notes
+
+- Tab indices are 0-based (first tab = 0, second tab = 1, etc.)
+- The card should be placed in the view where you want the redirection to happen
+- Multiple users can have the same default tab
+- The card is invisible and doesn't take up any space in the UI
+- Redirects only once when dashboard is opened from menu
+- Users can freely navigate between tabs after initial redirect

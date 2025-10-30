@@ -1,0 +1,9 @@
+{
+  "name": "View Default Tab",
+  "content_in_root": false,
+  "filename": "view-default-tab.js",
+  "country": ["NL"],
+  "homeassistant": "0.115.0",
+  "persistent_directory": false,
+  "render_readme": true
+}
