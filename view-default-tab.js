@@ -89,23 +89,26 @@ class ViewDefaultTab {
     // Split path into segments
     const segments = path.split('/').filter(segment => segment !== '');
     
-    if (segments.length < 1) {
+    if (segments.length < 2) {
       return path;
     }
     
-    // For paths like /dashboard-test/tibe or /dashboard-test/menthe
-    // We want to return /dashboard-test only if the last segment is a TAB INDEX (number)
-    // If last segment is a named tab (like 'tibe', 'menthe'), keep the full path as dashboard
+    // For Home Assistant dashboard paths like:
+    // /dashboard-test/tibe, /dashboard-test/master, /dashboard-test/0, /dashboard-test/1
+    // We want the dashboard base to be /dashboard-test
+    // Only the numeric tab indices should be stripped, named tabs are still part of same dashboard
     
     const lastSegment = segments[segments.length - 1];
     
-    // If last segment is purely numeric, it's a tab index - remove it to get dashboard
+    // If last segment is purely numeric, it's a tab index - remove it to get dashboard base
     if (/^\d+$/.test(lastSegment)) {
-      // Remove the numeric tab index
+      // Remove the numeric tab index: /dashboard-test/0 → /dashboard-test
       return '/' + segments.slice(0, -1).join('/');
     } else {
-      // Last segment is not numeric (named tab or dashboard), keep full path
-      return path;
+      // For named tabs, we still want the dashboard base, not the full path
+      // /dashboard-test/tibe → /dashboard-test (same dashboard, different tab)
+      // This way tibe, master, etc. are all treated as tabs within the same dashboard
+      return '/' + segments.slice(0, -1).join('/');
     }
   }
   
