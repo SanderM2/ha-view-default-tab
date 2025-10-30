@@ -65,29 +65,48 @@ class ViewDefaultTab {
   
   onNavigationChange() {
     const newDashboard = this.getCurrentDashboardPath();
+    const currentFullPath = window.location.pathname;
+    
+    console.log('ViewDefaultTab KNUTS: Navigation detected - Full path:', currentFullPath);
+    console.log('ViewDefaultTab KNUTS: Dashboard path:', newDashboard);
+    console.log('ViewDefaultTab KNUTS: Previous dashboard:', this.currentDashboard);
     
     if (newDashboard !== this.currentDashboard) {
-      console.log('ViewDefaultTab KNUTS: 🔄 Dashboard changed from', this.currentDashboard, 'to', newDashboard);
+      console.log('ViewDefaultTab KNUTS: 🔄 DIFFERENT DASHBOARD detected - from', this.currentDashboard, 'to', newDashboard);
       this.currentDashboard = newDashboard;
       this.hasRedirected = false; // Reset flag for new dashboard
       
       // Try redirect on new dashboard
       setTimeout(() => this.tryRedirect(), 200);
+    } else {
+      console.log('ViewDefaultTab KNUTS: ⏸️ SAME DASHBOARD - tab navigation within', newDashboard, '- NOT resetting flag');
     }
   }
   
   getCurrentDashboardPath() {
     const path = window.location.pathname;
-    // Remove tab index from path to get base dashboard
-    // e.g. "/dashboard-test/2" becomes "/dashboard-test"
-    const lastSlash = path.lastIndexOf('/');
-    if (lastSlash > 0) {
-      const afterSlash = path.substring(lastSlash + 1);
-      if (/^\d+$/.test(afterSlash)) {
-        return path.substring(0, lastSlash);
-      }
+    
+    // Split path into segments
+    const segments = path.split('/').filter(segment => segment !== '');
+    
+    if (segments.length < 1) {
+      return path;
     }
-    return path;
+    
+    // For paths like /dashboard-test/tibe or /dashboard-test/menthe
+    // We want to return /dashboard-test only if the last segment is a TAB INDEX (number)
+    // If last segment is a named tab (like 'tibe', 'menthe'), keep the full path as dashboard
+    
+    const lastSegment = segments[segments.length - 1];
+    
+    // If last segment is purely numeric, it's a tab index - remove it to get dashboard
+    if (/^\d+$/.test(lastSegment)) {
+      // Remove the numeric tab index
+      return '/' + segments.slice(0, -1).join('/');
+    } else {
+      // Last segment is not numeric (named tab or dashboard), keep full path
+      return path;
+    }
   }
   
   waitForDashboard() {
