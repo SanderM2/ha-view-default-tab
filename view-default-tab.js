@@ -3,8 +3,7 @@ class ViewDefaultTab {
   constructor() {
     this.initialized = false;
     this.currentPath = null;
-    this.lastTabClickTime = 0;
-    this.tabClickCooldown = 2000; // 2 seconds cooldown after tab click (increased from 1s)
+    this.isTabNavigation = false; // Flag to track if navigation came from tab click
     this.init();
   }
   
@@ -31,75 +30,83 @@ class ViewDefaultTab {
   setupTabClickDetection() {
     console.log('ViewDefaultTab KNUTS: Setting up tab click detection');
     
-    // Listen for clicks on the entire document
+    // Listen for clicks specifically on tab elements
     document.addEventListener('click', (event) => {
       console.log('ViewDefaultTab KNUTS: 🖱️ CLICK DETECTED');
       console.log('ViewDefaultTab KNUTS: Click target:', event.target);
-      console.log('ViewDefaultTab KNUTS: Click target tagName:', event.target.tagName);
-      console.log('ViewDefaultTab KNUTS: Click target classes:', event.target.className);
-      console.log('ViewDefaultTab KNUTS: Click target id:', event.target.id);
       
-      // Check if the click was on a tab or inside a tab
       const clickedElement = event.target;
       
-      // Try multiple ways to detect tab clicks
-      const tabElement = clickedElement.closest('ha-tab-group-tab');
-      const tabGroup = clickedElement.closest('ha-tab-group');
-      const tabWithRole = clickedElement.closest('[role="tab"]');
+      // Check multiple ways to detect if this is a tab click
+      const isTabClick = this.isTabClickEvent(clickedElement);
       
-      console.log('ViewDefaultTab KNUTS: Closest ha-tab-group-tab:', tabElement);
-      console.log('ViewDefaultTab KNUTS: Closest ha-tab-group:', tabGroup);
-      console.log('ViewDefaultTab KNUTS: Closest [role="tab"]:', tabWithRole);
-      
-      // Check if element has tab-related attributes
-      const hasTabRole = clickedElement.getAttribute('role') === 'tab';
-      const hasTabId = clickedElement.id && clickedElement.id.includes('tab');
-      const hasTabClass = clickedElement.className && clickedElement.className.includes('tab');
-      
-      console.log('ViewDefaultTab KNUTS: Has role="tab":', hasTabRole);
-      console.log('ViewDefaultTab KNUTS: Has tab in id:', hasTabId);
-      console.log('ViewDefaultTab KNUTS: Has tab in class:', hasTabClass);
-      
-      if (tabElement || tabWithRole || hasTabRole || (tabGroup && (hasTabId || hasTabClass))) {
-        console.log('ViewDefaultTab KNUTS: ✅ TAB CLICK DETECTED! Setting cooldown timer');
-        console.log('ViewDefaultTab KNUTS: Detection method:', {
-          tabElement: !!tabElement,
-          tabWithRole: !!tabWithRole,
-          hasTabRole,
-          tabGroupAndId: !!(tabGroup && hasTabId),
-          tabGroupAndClass: !!(tabGroup && hasTabClass)
-        });
+      if (isTabClick) {
+        console.log('ViewDefaultTab KNUTS: ✅ TAB CLICK DETECTED - Setting flag');
+        this.isTabNavigation = true;
         
-        this.lastTabClickTime = Date.now();
-        console.log('ViewDefaultTab KNUTS: lastTabClickTime set to:', this.lastTabClickTime);
+        // Reset flag after a short delay (but before the URL change happens)
+        setTimeout(() => {
+          console.log('ViewDefaultTab KNUTS: Resetting tab navigation flag');
+          this.isTabNavigation = false;
+        }, 500);
       } else {
-        console.log('ViewDefaultTab KNUTS: ❌ Not detected as tab click');
+        console.log('ViewDefaultTab KNUTS: ❌ Not a tab click');
       }
-    }, true); // Use capture phase to catch it early
+    }, true);
+  }
+  
+  isTabClickEvent(element) {
+    // Check if clicked element or any parent is a tab
+    const tabElement = element.closest('ha-tab-group-tab');
+    const tabWithRole = element.closest('[role="tab"]');
+    const isInTabGroup = element.closest('ha-tab-group');
     
-    console.log('ViewDefaultTab KNUTS: Tab click detection setup complete');
+    // Also check element attributes directly
+    const hasTabRole = element.getAttribute('role') === 'tab';
+    const hasTabId = element.id && element.id.includes('tab');
+    const isTabGroupTab = element.tagName === 'HA-TAB-GROUP-TAB';
+    
+    console.log('ViewDefaultTab KNUTS: Tab detection results:', {
+      tabElement: !!tabElement,
+      tabWithRole: !!tabWithRole, 
+      isInTabGroup: !!isInTabGroup,
+      hasTabRole,
+      hasTabId,
+      isTabGroupTab
+    });
+    
+    return !!(tabElement || tabWithRole || isTabGroupTab || hasTabRole || 
+             (isInTabGroup && hasTabId));
   }
   
   setupUrlChangeListeners() {
     // Listen for popstate events (back/forward button or menu navigation)
     window.addEventListener('popstate', () => {
-      console.log('ViewDefaultTab KNUTS: Popstate event detected (menu navigation)');
-      setTimeout(() => this.checkAndRedirect(), 200);
+      console.log('ViewDefaultTab KNUTS: Popstate event detected');
+      setTimeout(() => this.checkAndRedirect(), 100);
     });
     
     // Listen for hashchange events
     window.addEventListener('hashchange', () => {
       console.log('ViewDefaultTab KNUTS: Hash change event detected');
-      setTimeout(() => this.checkAndRedirect(), 200);
+      setTimeout(() => this.checkAndRedirect(), 100);
     });
     
     // Override history.pushState to catch programmatic navigation
     const originalPushState = history.pushState;
     history.pushState = (...args) => {
-      console.log('ViewDefaultTab KNUTS: History pushState detected - could be menu OR tab navigation');
+      console.log('ViewDefaultTab KNUTS: History pushState detected');
+      console.log('ViewDefaultTab KNUTS: Is tab navigation flag set?', this.isTabNavigation);
+      
       originalPushState.apply(history, args);
-      // Longer delay to allow tab click detection to set the timer first
-      setTimeout(() => this.checkAndRedirect(), 300);
+      
+      // Only trigger redirect check if this is NOT a tab navigation
+      if (!this.isTabNavigation) {
+        console.log('ViewDefaultTab KNUTS: Not tab navigation - checking for redirect');
+        setTimeout(() => this.checkAndRedirect(), 100);
+      } else {
+        console.log('ViewDefaultTab KNUTS: Tab navigation detected - skipping redirect check');
+      }
     };
   }
   
@@ -117,18 +124,12 @@ class ViewDefaultTab {
   checkAndRedirect() {
     try {
       console.log('ViewDefaultTab KNUTS: 🔍 CheckAndRedirect called');
+      console.log('ViewDefaultTab KNUTS: Is tab navigation?', this.isTabNavigation);
       
-      // Check if we recently had a tab click - if so, don't redirect
-      const timeSinceTabClick = Date.now() - this.lastTabClickTime;
-      console.log('ViewDefaultTab KNUTS: Time since last tab click:', timeSinceTabClick, 'ms');
-      console.log('ViewDefaultTab KNUTS: Cooldown period:', this.tabClickCooldown, 'ms');
-      console.log('ViewDefaultTab KNUTS: lastTabClickTime:', this.lastTabClickTime);
-      
-      if (timeSinceTabClick < this.tabClickCooldown) {
-        console.log('ViewDefaultTab KNUTS: ⏸️ BLOCKING REDIRECT - Recent tab click detected, skipping redirect. Time since click:', timeSinceTabClick, 'ms');
+      // If this navigation came from a tab click, don't redirect
+      if (this.isTabNavigation) {
+        console.log('ViewDefaultTab KNUTS: ⏸️ BLOCKING REDIRECT - Tab navigation detected');
         return;
-      } else {
-        console.log('ViewDefaultTab KNUTS: ✅ No recent tab click, proceeding with redirect check');
       }
       
       // Check if this is a new page load by monitoring URL path changes
@@ -144,7 +145,7 @@ class ViewDefaultTab {
         return; // Not a new page load, don't redirect
       }
       
-      console.log('ViewDefaultTab KNUTS: 🚀 New page detected, checking for redirect. Path:', currentPath);
+      console.log('ViewDefaultTab KNUTS: 🚀 New page detected via menu navigation, checking for redirect');
       
       // Update tracking variables
       this.currentPath = currentPath;
