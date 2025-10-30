@@ -1,5 +1,11 @@
 class ViewDefaultTabCard extends HTMLElement {
   
+  constructor() {
+    super();
+    this._initialized = false;
+    this._currentPath = null;
+  }
+  
   set hass(hass) {
     // Hide the card - it should be invisible
     this.style.display = 'none';
@@ -9,12 +15,19 @@ class ViewDefaultTabCard extends HTMLElement {
       return;
     }
     
-    // Only run once per page load - check if we already redirected
-    if (this._hasRedirected) {
-      return;
-    }
-    
     try {
+      // Check if this is a new page load by monitoring URL path changes
+      const currentPath = window.location.pathname + window.location.hash;
+      const isNewPageLoad = !this._initialized || this._currentPath !== currentPath;
+      
+      if (!isNewPageLoad) {
+        return; // Not a new page load, don't redirect
+      }
+      
+      // Update tracking variables
+      this._currentPath = currentPath;
+      this._initialized = true;
+      
       // Get the main Home Assistant elements
       const homeAssistant = document.querySelector('home-assistant');
       if (!homeAssistant) return;
@@ -55,18 +68,16 @@ class ViewDefaultTabCard extends HTMLElement {
       // Get currently active tab
       const activeTab = Array.from(tabList).findIndex(tab => tab.hasAttribute('selected'));
       
-      // If we're already on the target tab, mark as redirected and don't redirect
+      // If we're already on the target tab, don't redirect
       if (activeTab === targetTabIndex) {
-        this._hasRedirected = true;
         return;
       }
       
-      // Perform the redirect - this happens when opening dashboard from menu
-      console.log(`View Default Tab: Redirecting user ${currentUser} to tab ${targetTabIndex}`);
-      tabList[targetTabIndex].click();
-      
-      // Mark that we have redirected for this page load
-      this._hasRedirected = true;
+      // Small delay to ensure UI is fully loaded before redirect
+      setTimeout(() => {
+        console.log(`View Default Tab: Redirecting user ${currentUser} to tab ${targetTabIndex} (new page load detected)`);
+        tabList[targetTabIndex].click();
+      }, 100);
       
     } catch (error) {
       console.error('View Default Tab Error:', error);
