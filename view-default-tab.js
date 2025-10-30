@@ -30,53 +30,81 @@ class ViewDefaultTab {
   setupTabClickDetection() {
     console.log('ViewDefaultTab KNUTS: Setting up tab click detection');
     
-    // Listen for clicks specifically on tab elements
-    document.addEventListener('click', (event) => {
-      console.log('ViewDefaultTab KNUTS: 🖱️ CLICK DETECTED');
-      console.log('ViewDefaultTab KNUTS: Click target:', event.target);
+    // Function to add listeners to tabs when they're available
+    const addTabListeners = () => {
+      console.log('ViewDefaultTab KNUTS: Looking for tab elements to add listeners');
       
-      const clickedElement = event.target;
+      // Try to find the tab group in shadow DOM
+      const homeAssistant = document.querySelector('home-assistant');
+      if (!homeAssistant?.shadowRoot) return false;
       
-      // Check multiple ways to detect if this is a tab click
-      const isTabClick = this.isTabClickEvent(clickedElement);
+      const main = homeAssistant.shadowRoot.querySelector('home-assistant-main');
+      if (!main?.shadowRoot) return false;
       
-      if (isTabClick) {
-        console.log('ViewDefaultTab KNUTS: ✅ TAB CLICK DETECTED - Setting flag');
-        this.isTabNavigation = true;
+      const panel = main.shadowRoot.querySelector('ha-panel-lovelace');
+      if (!panel?.shadowRoot) return false;
+      
+      const uiRoot = panel.shadowRoot.querySelector('hui-root');
+      if (!uiRoot?.shadowRoot) return false;
+      
+      const tabGroup = uiRoot.shadowRoot.querySelector('ha-tab-group');
+      if (!tabGroup) return false;
+      
+      // Get all tab elements
+      const tabs = tabGroup.querySelectorAll('ha-tab-group-tab');
+      console.log('ViewDefaultTab KNUTS: Found', tabs.length, 'tab elements');
+      
+      if (tabs.length > 0) {
+        // Add click listeners directly to each tab
+        tabs.forEach((tab, index) => {
+          // Remove existing listener if any
+          if (tab._viewDefaultTabListener) {
+            tab.removeEventListener('click', tab._viewDefaultTabListener);
+          }
+          
+          // Add new listener
+          const listener = (event) => {
+            console.log('ViewDefaultTab KNUTS: ✅ DIRECT TAB CLICK DETECTED on tab', index);
+            console.log('ViewDefaultTab KNUTS: Tab element:', tab);
+            console.log('ViewDefaultTab KNUTS: Tab aria-label:', tab.getAttribute('aria-label'));
+            
+            this.isTabNavigation = true;
+            
+            // Reset flag after navigation completes
+            setTimeout(() => {
+              console.log('ViewDefaultTab KNUTS: Resetting tab navigation flag');
+              this.isTabNavigation = false;
+            }, 500);
+          };
+          
+          tab.addEventListener('click', listener);
+          tab._viewDefaultTabListener = listener; // Store reference for removal
+        });
         
-        // Reset flag after a short delay (but before the URL change happens)
-        setTimeout(() => {
-          console.log('ViewDefaultTab KNUTS: Resetting tab navigation flag');
-          this.isTabNavigation = false;
-        }, 500);
-      } else {
-        console.log('ViewDefaultTab KNUTS: ❌ Not a tab click');
+        console.log('ViewDefaultTab KNUTS: Added click listeners to', tabs.length, 'tabs');
+        return true;
       }
-    }, true);
-  }
-  
-  isTabClickEvent(element) {
-    // Check if clicked element or any parent is a tab
-    const tabElement = element.closest('ha-tab-group-tab');
-    const tabWithRole = element.closest('[role="tab"]');
-    const isInTabGroup = element.closest('ha-tab-group');
+      
+      return false;
+    };
     
-    // Also check element attributes directly
-    const hasTabRole = element.getAttribute('role') === 'tab';
-    const hasTabId = element.id && element.id.includes('tab');
-    const isTabGroupTab = element.tagName === 'HA-TAB-GROUP-TAB';
-    
-    console.log('ViewDefaultTab KNUTS: Tab detection results:', {
-      tabElement: !!tabElement,
-      tabWithRole: !!tabWithRole, 
-      isInTabGroup: !!isInTabGroup,
-      hasTabRole,
-      hasTabId,
-      isTabGroupTab
-    });
-    
-    return !!(tabElement || tabWithRole || isTabGroupTab || hasTabRole || 
-             (isInTabGroup && hasTabId));
+    // Try to add listeners immediately
+    if (!addTabListeners()) {
+      console.log('ViewDefaultTab KNUTS: Tabs not ready, will retry when DOM changes');
+      
+      // Set up observer to retry when DOM changes
+      const observer = new MutationObserver(() => {
+        if (addTabListeners()) {
+          console.log('ViewDefaultTab KNUTS: Successfully added tab listeners after DOM change');
+          observer.disconnect();
+        }
+      });
+      
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+    }
   }
   
   setupUrlChangeListeners() {
@@ -112,6 +140,8 @@ class ViewDefaultTab {
   
   observeChanges() {
     const observer = new MutationObserver(() => {
+      // Re-setup tab listeners when DOM changes (in case tabs are recreated)
+      this.setupTabClickDetection();
       this.checkAndRedirect();
     });
     
