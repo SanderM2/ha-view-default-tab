@@ -1,7 +1,8 @@
 class ViewDefaultTab {
   
   constructor() {
-    this.hasRedirected = false; // Simple flag to ensure we only redirect once per load
+    this.hasRedirected = false; // Simple flag to ensure we only redirect once per dashboard load
+    this.currentDashboard = null; // Track which dashboard we're on
     this.init();
   }
   
@@ -19,11 +20,74 @@ class ViewDefaultTab {
   start() {
     console.log('ViewDefaultTab KNUTS: Starting...');
     
+    // Listen for URL changes (SPA navigation)
+    this.setupNavigationListeners();
+    
     // Try immediate redirect
     this.tryRedirect();
     
     // Also set up observer for when DOM is ready (in case elements aren't loaded yet)
     this.waitForDashboard();
+  }
+  
+  setupNavigationListeners() {
+    // Listen for URL changes in SPA
+    let lastUrl = location.href;
+    
+    // Override pushState to catch programmatic navigation
+    const originalPushState = history.pushState;
+    history.pushState = (...args) => {
+      originalPushState.apply(history, args);
+      setTimeout(() => this.onNavigationChange(), 100);
+    };
+    
+    // Override replaceState
+    const originalReplaceState = history.replaceState;
+    history.replaceState = (...args) => {
+      originalReplaceState.apply(history, args);
+      setTimeout(() => this.onNavigationChange(), 100);
+    };
+    
+    // Listen for popstate (back/forward)
+    window.addEventListener('popstate', () => {
+      setTimeout(() => this.onNavigationChange(), 100);
+    });
+    
+    // Fallback: periodically check URL
+    setInterval(() => {
+      const currentUrl = location.href;
+      if (currentUrl !== lastUrl) {
+        lastUrl = currentUrl;
+        this.onNavigationChange();
+      }
+    }, 1000);
+  }
+  
+  onNavigationChange() {
+    const newDashboard = this.getCurrentDashboardPath();
+    
+    if (newDashboard !== this.currentDashboard) {
+      console.log('ViewDefaultTab KNUTS: 🔄 Dashboard changed from', this.currentDashboard, 'to', newDashboard);
+      this.currentDashboard = newDashboard;
+      this.hasRedirected = false; // Reset flag for new dashboard
+      
+      // Try redirect on new dashboard
+      setTimeout(() => this.tryRedirect(), 200);
+    }
+  }
+  
+  getCurrentDashboardPath() {
+    const path = window.location.pathname;
+    // Remove tab index from path to get base dashboard
+    // e.g. "/dashboard-test/2" becomes "/dashboard-test"
+    const lastSlash = path.lastIndexOf('/');
+    if (lastSlash > 0) {
+      const afterSlash = path.substring(lastSlash + 1);
+      if (/^\d+$/.test(afterSlash)) {
+        return path.substring(0, lastSlash);
+      }
+    }
+    return path;
   }
   
   waitForDashboard() {
