@@ -2,8 +2,8 @@ class ViewDefaultTab {
   
   constructor() {
     this.initialized = false;
-    this.currentPath = null;
-    this.isTabNavigation = false; // Flag to track if navigation came from tab click
+    this.baseDashboardUrl = null; // Store the dashboard base URL (without tab index)
+    this.originalTabIndex = null; // Store the original tab when script first loads
     this.init();
   }
   
@@ -17,9 +17,9 @@ class ViewDefaultTab {
   }
   
   start() {
-    // Setup tab click detection
-    this.setupTabClickDetection();
-    // Setup URL change listeners for menu navigation
+    // Get the base dashboard URL when script first loads
+    this.setBaseDashboardUrl();
+    // Setup URL change listeners for navigation detection
     this.setupUrlChangeListeners();
     // Observe for changes in the DOM to catch dashboard loads
     this.observeChanges();
@@ -27,88 +27,64 @@ class ViewDefaultTab {
     this.checkAndRedirect();
   }
   
-  setupTabClickDetection() {
-    console.log('ViewDefaultTab KNUTS: Setting up tab click detection');
+  setBaseDashboardUrl() {
+    const currentUrl = window.location.pathname;
+    console.log('ViewDefaultTab KNUTS: Current URL on load:', currentUrl);
     
-    // Function to add listeners to tabs when they're available
-    const addTabListeners = () => {
-      console.log('ViewDefaultTab KNUTS: Looking for tab elements to add listeners');
+    // Extract base dashboard URL (everything before the last slash and number)
+    // e.g. "/dashboard-test/0" becomes "/dashboard-test"
+    const lastSlashIndex = currentUrl.lastIndexOf('/');
+    if (lastSlashIndex > 0) {
+      const afterSlash = currentUrl.substring(lastSlashIndex + 1);
       
-      // Try to find the tab group in shadow DOM
-      const homeAssistant = document.querySelector('home-assistant');
-      if (!homeAssistant?.shadowRoot) return false;
-      
-      const main = homeAssistant.shadowRoot.querySelector('home-assistant-main');
-      if (!main?.shadowRoot) return false;
-      
-      const panel = main.shadowRoot.querySelector('ha-panel-lovelace');
-      if (!panel?.shadowRoot) return false;
-      
-      const uiRoot = panel.shadowRoot.querySelector('hui-root');
-      if (!uiRoot?.shadowRoot) return false;
-      
-      const tabGroup = uiRoot.shadowRoot.querySelector('ha-tab-group');
-      if (!tabGroup) return false;
-      
-      // Get all tab elements
-      const tabs = tabGroup.querySelectorAll('ha-tab-group-tab');
-      console.log('ViewDefaultTab KNUTS: Found', tabs.length, 'tab elements');
-      
-      if (tabs.length > 0) {
-        // Add click listeners directly to each tab
-        tabs.forEach((tab, index) => {
-          // Remove existing listener if any
-          if (tab._viewDefaultTabListener) {
-            tab.removeEventListener('click', tab._viewDefaultTabListener);
-          }
-          
-          // Add new listener
-          const listener = (event) => {
-            console.log('ViewDefaultTab KNUTS: ✅ DIRECT TAB CLICK DETECTED on tab', index);
-            console.log('ViewDefaultTab KNUTS: Tab element:', tab);
-            console.log('ViewDefaultTab KNUTS: Tab aria-label:', tab.getAttribute('aria-label'));
-            
-            this.isTabNavigation = true;
-            
-            // Reset flag after navigation completes
-            setTimeout(() => {
-              console.log('ViewDefaultTab KNUTS: Resetting tab navigation flag');
-              this.isTabNavigation = false;
-            }, 500);
-          };
-          
-          tab.addEventListener('click', listener);
-          tab._viewDefaultTabListener = listener; // Store reference for removal
-        });
-        
-        console.log('ViewDefaultTab KNUTS: Added click listeners to', tabs.length, 'tabs');
-        return true;
+      // Check if what's after the slash is a number (tab index)
+      if (/^\d+$/.test(afterSlash)) {
+        this.baseDashboardUrl = currentUrl.substring(0, lastSlashIndex);
+        this.originalTabIndex = parseInt(afterSlash);
+      } else {
+        // No tab index in URL, use full path as base
+        this.baseDashboardUrl = currentUrl;
+        this.originalTabIndex = 0;
       }
-      
-      return false;
-    };
-    
-    // Try to add listeners immediately
-    if (!addTabListeners()) {
-      console.log('ViewDefaultTab KNUTS: Tabs not ready, will retry when DOM changes');
-      
-      // Set up observer to retry when DOM changes
-      const observer = new MutationObserver(() => {
-        if (addTabListeners()) {
-          console.log('ViewDefaultTab KNUTS: Successfully added tab listeners after DOM change');
-          observer.disconnect();
-        }
-      });
-      
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true
-      });
+    } else {
+      this.baseDashboardUrl = currentUrl;
+      this.originalTabIndex = 0;
     }
+    
+    console.log('ViewDefaultTab KNUTS: Base dashboard URL:', this.baseDashboardUrl);
+    console.log('ViewDefaultTab KNUTS: Original tab index:', this.originalTabIndex);
+  }
+  
+  isMenuNavigation() {
+    const currentUrl = window.location.pathname;
+    console.log('ViewDefaultTab KNUTS: Checking navigation type');
+    console.log('ViewDefaultTab KNUTS: Current URL:', currentUrl);
+    console.log('ViewDefaultTab KNUTS: Base dashboard URL:', this.baseDashboardUrl);
+    console.log('ViewDefaultTab KNUTS: Original tab index:', this.originalTabIndex);
+    
+    // Extract current tab index from URL
+    const lastSlashIndex = currentUrl.lastIndexOf('/');
+    let currentTabIndex = 0;
+    
+    if (lastSlashIndex > 0) {
+      const afterSlash = currentUrl.substring(lastSlashIndex + 1);
+      if (/^\d+$/.test(afterSlash)) {
+        currentTabIndex = parseInt(afterSlash);
+      }
+    }
+    
+    console.log('ViewDefaultTab KNUTS: Current tab index:', currentTabIndex);
+    
+    // If current URL matches the original URL (same tab index), it's menu navigation
+    // If tab index is different, it was a tab click
+    const isMenuNav = (currentTabIndex === this.originalTabIndex);
+    console.log('ViewDefaultTab KNUTS: Is menu navigation?', isMenuNav);
+    
+    return isMenuNav;
   }
   
   setupUrlChangeListeners() {
-    // Listen for popstate events (back/forward button or menu navigation)
+    // Listen for popstate events (back/forward button)
     window.addEventListener('popstate', () => {
       console.log('ViewDefaultTab KNUTS: Popstate event detected');
       setTimeout(() => this.checkAndRedirect(), 100);
@@ -124,24 +100,13 @@ class ViewDefaultTab {
     const originalPushState = history.pushState;
     history.pushState = (...args) => {
       console.log('ViewDefaultTab KNUTS: History pushState detected');
-      console.log('ViewDefaultTab KNUTS: Is tab navigation flag set?', this.isTabNavigation);
-      
       originalPushState.apply(history, args);
-      
-      // Only trigger redirect check if this is NOT a tab navigation
-      if (!this.isTabNavigation) {
-        console.log('ViewDefaultTab KNUTS: Not tab navigation - checking for redirect');
-        setTimeout(() => this.checkAndRedirect(), 100);
-      } else {
-        console.log('ViewDefaultTab KNUTS: Tab navigation detected - skipping redirect check');
-      }
+      setTimeout(() => this.checkAndRedirect(), 100);
     };
   }
   
   observeChanges() {
     const observer = new MutationObserver(() => {
-      // Re-setup tab listeners when DOM changes (in case tabs are recreated)
-      this.setupTabClickDetection();
       this.checkAndRedirect();
     });
     
@@ -154,68 +119,80 @@ class ViewDefaultTab {
   checkAndRedirect() {
     try {
       console.log('ViewDefaultTab KNUTS: 🔍 CheckAndRedirect called');
-      console.log('ViewDefaultTab KNUTS: Is tab navigation?', this.isTabNavigation);
       
-      // If this navigation came from a tab click, don't redirect
-      if (this.isTabNavigation) {
-        console.log('ViewDefaultTab KNUTS: ⏸️ BLOCKING REDIRECT - Tab navigation detected');
+      // Only redirect if this is menu navigation (not tab navigation)
+      if (!this.isMenuNavigation()) {
+        console.log('ViewDefaultTab KNUTS: ⏸️ SKIPPING REDIRECT - Tab click navigation detected');
         return;
       }
       
-      // Check if this is a new page load by monitoring URL path changes
-      const currentPath = window.location.pathname + window.location.hash;
-      const isNewPageLoad = !this.initialized || this.currentPath !== currentPath;
-      
-      console.log('ViewDefaultTab KNUTS: Current path:', currentPath);
-      console.log('ViewDefaultTab KNUTS: Previous path:', this.currentPath);
-      console.log('ViewDefaultTab KNUTS: Is new page load:', isNewPageLoad);
-      
-      if (!isNewPageLoad) {
-        console.log('ViewDefaultTab KNUTS: ⏭️ Not a new page load, skipping redirect');
-        return; // Not a new page load, don't redirect
-      }
-      
-      console.log('ViewDefaultTab KNUTS: 🚀 New page detected via menu navigation, checking for redirect');
-      
-      // Update tracking variables
-      this.currentPath = currentPath;
-      this.initialized = true;
+      console.log('ViewDefaultTab KNUTS: ✅ Menu navigation detected - proceeding with redirect check');
       
       // Get the main Home Assistant elements
       const homeAssistant = document.querySelector('home-assistant');
-      if (!homeAssistant) return;
+      if (!homeAssistant) {
+        console.log('ViewDefaultTab KNUTS: ❌ home-assistant element not found');
+        return;
+      }
       
       const root = homeAssistant.shadowRoot?.querySelector('home-assistant-main')?.shadowRoot;
-      if (!root) return;
+      if (!root) {
+        console.log('ViewDefaultTab KNUTS: ❌ home-assistant-main shadowRoot not found');
+        return;
+      }
       
       // Find the Lovelace panel
       const panel = root.querySelector('ha-panel-lovelace');
-      if (!panel) return;
+      if (!panel) {
+        console.log('ViewDefaultTab KNUTS: ❌ ha-panel-lovelace not found');
+        return;
+      }
       
       const uiRoot = panel.shadowRoot?.querySelector('hui-root');
-      if (!uiRoot) return;
+      if (!uiRoot) {
+        console.log('ViewDefaultTab KNUTS: ❌ hui-root not found');
+        return;
+      }
       
       // Don't redirect in edit mode
       const isEditing = uiRoot.shadowRoot?.querySelector('.edit-mode');
-      if (isEditing) return;
+      if (isEditing) {
+        console.log('ViewDefaultTab KNUTS: ✏️ Edit mode detected, skipping redirect');
+        return;
+      }
       
       // Get the dashboard configuration
       const config = this.getDashboardConfig(uiRoot);
-      if (!config || !config.view_default_tab || !config.view_default_tab.users) return;
+      if (!config || !config.view_default_tab || !config.view_default_tab.users) {
+        console.log('ViewDefaultTab KNUTS: ❌ No view_default_tab configuration found');
+        return;
+      }
       
       // Get current user from hass object
       const hass = this.getHassObject();
-      if (!hass || !hass.user) return;
+      if (!hass || !hass.user) {
+        console.log('ViewDefaultTab KNUTS: ❌ Hass object or user not found');
+        return;
+      }
       
       const currentUser = hass.user.name;
+      console.log('ViewDefaultTab KNUTS: Current user:', currentUser);
       
       // Find configuration for current user
       const userConfig = config.view_default_tab.users.find(user => user.username === currentUser);
-      if (!userConfig) return;
+      if (!userConfig) {
+        console.log('ViewDefaultTab KNUTS: ❌ No configuration found for user:', currentUser);
+        return;
+      }
+      
+      console.log('ViewDefaultTab KNUTS: User config found:', userConfig);
       
       // Get the tab group
       const tabs = uiRoot.shadowRoot?.querySelector('ha-tab-group');
-      if (!tabs || !tabs.tabs) return;
+      if (!tabs || !tabs.tabs) {
+        console.log('ViewDefaultTab KNUTS: ❌ ha-tab-group or tabs not found');
+        return;
+      }
       
       const tabList = tabs.tabs;
       const targetTabIndex = userConfig.default_tab;
@@ -228,15 +205,18 @@ class ViewDefaultTab {
       
       // Get currently active tab
       const activeTab = Array.from(tabList).findIndex(tab => tab.hasAttribute('selected'));
+      console.log('ViewDefaultTab KNUTS: Current active tab:', activeTab, 'Target tab:', targetTabIndex);
       
       // If we're already on the target tab, don't redirect
       if (activeTab === targetTabIndex) {
+        console.log('ViewDefaultTab KNUTS: ✅ Already on target tab, no redirect needed');
         return;
       }
       
-      // Small delay to ensure UI is fully loaded before redirect
+      // Perform the redirect
+      console.log('ViewDefaultTab KNUTS: 🚀 Performing redirect to tab', targetTabIndex);
       setTimeout(() => {
-        console.log(`View Default Tab KNUTS: Redirecting user ${currentUser} to tab ${targetTabIndex} (new page load detected)`);
+        console.log(`View Default Tab KNUTS: Redirecting user ${currentUser} to tab ${targetTabIndex} (menu navigation detected)`);
         tabList[targetTabIndex].click();
       }, 100);
       
