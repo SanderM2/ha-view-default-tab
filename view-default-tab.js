@@ -66,6 +66,15 @@ class ViewDefaultTab {
     const currentDashboardBase = this.extractDashboardBase(currentFullPath);
     const previousDashboardBase = this.currentDashboard ? this.extractDashboardBase(this.currentDashboard) : null;
     
+    // Check if the path after dashboard is numeric (tab index navigation)
+    const currentTabPart = this.getTabPart(currentFullPath);
+    if (currentTabPart && /^\d+$/.test(currentTabPart)) {
+      // If it's numeric (like /dashboard-test/0, /dashboard-test/1), 
+      // Update current path but don't reset redirect flag or trigger redirect
+      this.currentDashboard = currentFullPath;
+      return;
+    }
+    
     if (currentDashboardBase !== previousDashboardBase) {
       this.currentDashboard = currentFullPath;
       this.hasRedirected = false; // Reset flag for new dashboard
@@ -91,6 +100,21 @@ class ViewDefaultTab {
     }
     
     return path;
+  }
+  
+  getTabPart(path) {
+    if (!path) return null;
+    
+    // For paths like /dashboard-test/tibe, /dashboard-test/0
+    // Extract the tab part: tibe, 0
+    const segments = path.split('/').filter(segment => segment !== '');
+    
+    if (segments.length >= 2) {
+      // Return the second segment (tab part)
+      return segments[1];
+    }
+    
+    return null;
   }
   
   waitForDashboard() {
